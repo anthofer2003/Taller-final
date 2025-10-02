@@ -1,6 +1,19 @@
 from flask import Flask
+from werkzeug.security import generate_password_hash 
+## instancia para arrancar el proyecto
+app = Flask (__name__)
 
-app = Flask(__name__)
+app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
+
+
+# Contraseña que deseas hashear
+password = ""
+
+# Generar el hash de la contraseña con un algoritmo de scrypt
+hashed_password = generate_password_hash(password, method='scrypt', salt_length=16)
+
+# Asegurarse de que el hash tenga 300 caracteres
+print(hashed_password[:300])
 
 # importar referenciales
 from app.rutas.referenciales.ciudad.ciudad_routes import ciumod
@@ -13,6 +26,10 @@ from app.rutas.referenciales.carrera.carrera_routes import carremod
 from app.rutas.referenciales.examen.examen_routes import examod
 from app.rutas.referenciales.certificado.certificado_routes import certimod
 from app.rutas.referenciales.turno.turno_routes import turmod
+
+from app.rutas.login.login_routes import login_bp
+
+app.register_blueprint(login_bp)
 
 # registrar referenciales
 modulo0 = '/referenciales'

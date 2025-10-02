@@ -9,15 +9,12 @@ class PaisDao:
         SELECT id, descripcion
         FROM paises
         """
-        # Objeto conexión
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
             cur.execute(paisSQL)
-            # Trae datos de la BD
             lista_paises = cur.fetchall()
-            # Retorno los datos
             lista_ordenada = []
             for item in lista_paises:
                 lista_ordenada.append({
@@ -36,19 +33,18 @@ class PaisDao:
         SELECT id, descripcion
         FROM paises WHERE id=%s
         """
-        # Objeto conexión
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
         try:
             cur.execute(paisSQL, (id,))
-            # Trae el dato de la BD
             paisEncontrado = cur.fetchone()
-            # Retorno el dato
-            return {
+            if paisEncontrado:
+                return {
                     "id": paisEncontrado[0],
                     "descripcion": paisEncontrado[1]
                 }
+            return None
         except con.Error as e:
             app.logger.info(e)
         finally:
@@ -56,33 +52,60 @@ class PaisDao:
             con.close()
 
     def guardarPais(self, descripcion):
-        insertPaisSQL = """
-        INSERT INTO paises(descripcion) VALUES(%s)
+        descripcion_normalizada = descripcion.strip().upper()
+
+        verificarSQL = """
+        SELECT id FROM paises WHERE UPPER(TRIM(descripcion)) = %s
         """
+        insertSQL = """
+        INSERT INTO paises(descripcion) VALUES(%s) RETURNING id
+        """
+
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
 
-        # Ejecución exitosa
         try:
-            cur.execute(insertPaisSQL, (descripcion,))
-            # Confirma la inserción
+            cur.execute(verificarSQL, (descripcion_normalizada,))
+            existente = cur.fetchone()
+
+            if existente:
+                return {
+                    "success": False,
+                    "message": "El país ya existe en la base de datos.",
+                    "id": existente[0]
+                }
+
+            cur.execute(insertSQL, (descripcion_normalizada,))
+            nuevo_id = cur.fetchone()[0]
             con.commit()
 
-            return True
+            return {
+                "success": True,
+                "message": "País guardado exitosamente.",
+                "id": nuevo_id
+            }
 
-        # Si algo falló entra aquí
         except con.Error as e:
             app.logger.info(e)
+            return {
+                "success": False,
+                "message": "Error al guardar el país.",
+                "id": None
+            }
 
-        # Siempre se va ejecutar
         finally:
             cur.close()
             con.close()
 
-        return False
-
     def updatePais(self, id, descripcion):
+        descripcion_normalizada = descripcion.strip().upper()
+
+        # Verificar que no exista otro país con la misma descripción diferente al que actualizamos
+        verificarSQL = """
+        SELECT id FROM paises WHERE UPPER(TRIM(descripcion)) = %s AND id != %s
+        """
+
         updatePaisSQL = """
         UPDATE paises
         SET descripcion=%s
@@ -91,25 +114,32 @@ class PaisDao:
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
-
-        # Ejecución exitosa
         try:
-            cur.execute(updatePaisSQL, (descripcion, id,))
-            # Confirma la actualización
+            cur.execute(verificarSQL, (descripcion_normalizada, id))
+            existente = cur.fetchone()
+
+            if existente:
+                # Ya existe otro país con esa descripción
+                return {
+                    "success": False,
+                    "message": "El país ya existe en la base de datos."
+                }
+
+            cur.execute(updatePaisSQL, (descripcion_normalizada, id,))
             con.commit()
-
-            return True
-
-        # Si algo falló entra aquí
+            return {
+                "success": True,
+                "message": "País actualizado exitosamente."
+            }
         except con.Error as e:
             app.logger.info(e)
-
-        # Siempre se va ejecutar
+            return {
+                "success": False,
+                "message": "Error al actualizar el país."
+            }
         finally:
             cur.close()
             con.close()
-
-        return False
 
     def deletePais(self, id):
         deletePaisSQL = """
@@ -119,22 +149,13 @@ class PaisDao:
         conexion = Conexion()
         con = conexion.getConexion()
         cur = con.cursor()
-
-        # Ejecución exitosa
         try:
             cur.execute(deletePaisSQL, (id,))
-            # Confirma la eliminación
             con.commit()
-
             return True
-
-        # Si algo falló entra aquí
         except con.Error as e:
             app.logger.info(e)
-
-        # Siempre se va ejecutar
         finally:
             cur.close()
             con.close()
-
         return False

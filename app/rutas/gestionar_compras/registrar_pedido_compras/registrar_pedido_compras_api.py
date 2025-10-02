@@ -97,3 +97,27 @@ def get_sucursal_depositos(id_sucursal):
             'success': False,
             'error': 'Ocurrió un error interno. Consulte con el administrador'
         }), 500
+    
+@pdcapi.route('/pedidos/<int:id_pedido_compra>', methods=['DELETE'])
+def anular_pedido(id_pedido_compra):
+    dao = PedidoDeComprasDao()
+    try:
+        resultado = dao.anular(id_pedido_compra)
+        if resultado:
+            return jsonify({
+                'success': True,
+                'message': 'Pedido anulado correctamente.',
+                'error': False
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'No se pudo anular el pedido. Consulte con el administrador.'
+            }), 500
+    except Exception as e:
+        app.logger.error(f"Error al anular el pedido: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Ocurrió un error interno. Consulte con el administrador.'
+        }), 500
+    

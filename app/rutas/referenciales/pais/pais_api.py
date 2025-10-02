@@ -1,22 +1,26 @@
+import re
 from flask import Blueprint, request, jsonify, current_app as app
 from app.dao.referenciales.pais.PaisDao import PaisDao
 
 paisapi = Blueprint('paisapi', __name__)
 
+# Expresión regular para validar sólo letras (mayúsculas/minúsculas), espacios y tildes
+VALIDAR_DESCRIPCION = re.compile(r'^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$')
+
+def es_descripcion_valida(descripcion):
+    return bool(VALIDAR_DESCRIPCION.fullmatch(descripcion.strip()))
+
 # Trae todos los países
 @paisapi.route('/paises', methods=['GET'])
 def getPaises():
     paisdao = PaisDao()
-
     try:
         paises = paisdao.getPaises()
-
         return jsonify({
             'success': True,
             'data': paises,
             'error': None
         }), 200
-
     except Exception as e:
         app.logger.error(f"Error al obtener todos los países: {str(e)}")
         return jsonify({
@@ -24,14 +28,12 @@ def getPaises():
             'error': 'Ocurrió un error interno. Consulte con el administrador.'
         }), 500
 
-# Trae un país específico por ID
+# Trae un país por ID
 @paisapi.route('/paises/<int:pais_id>', methods=['GET'])
 def getPais(pais_id):
     paisdao = PaisDao()
-
     try:
         pais = paisdao.getPaisById(pais_id)
-
         if pais:
             return jsonify({
                 'success': True,
@@ -43,7 +45,6 @@ def getPais(pais_id):
                 'success': False,
                 'error': 'No se encontró el país con el ID proporcionado.'
             }), 404
-
     except Exception as e:
         app.logger.error(f"Error al obtener país: {str(e)}")
         return jsonify({
@@ -57,28 +58,38 @@ def addPais():
     data = request.get_json()
     paisdao = PaisDao()
 
-    # Validar que el JSON no esté vacío y tenga las propiedades necesarias
-    campos_requeridos = ['descripcion']
+    if not data or 'descripcion' not in data or not data['descripcion'].strip():
+        return jsonify({
+            'success': False,
+            'error': 'El campo descripcion es obligatorio y no puede estar vacío.'
+        }), 400
 
-    # Verificar si faltan campos o son vacíos
-    for campo in campos_requeridos:
-        if campo not in data or data[campo] is None or len(data[campo].strip()) == 0:
-            return jsonify({
-                            'success': False,
-                            'error': f'El campo {campo} es obligatorio y no puede estar vacío.'
-                            }), 400
+    descripcion = data['descripcion'].strip()
+
+    if not es_descripcion_valida(descripcion):
+        return jsonify({
+            'success': False,
+            'error': 'La descripción solo puede contener letras y espacios.'
+        }), 400
 
     try:
-        descripcion = data['descripcion'].upper()
-        pais_id = paisdao.guardarPais(descripcion)
-        if pais_id is not None:
+        resultado = paisdao.guardarPais(descripcion)
+
+        if resultado["success"]:
             return jsonify({
                 'success': True,
-                'data': {'id': pais_id, 'descripcion': descripcion},
-                'error': None
+                'data': {
+                    'id': resultado["id"],
+                    'descripcion': descripcion.upper()
+                },
+                'message': resultado["message"]
             }), 201
         else:
-            return jsonify({ 'success': False, 'error': 'No se pudo guardar el país. Consulte con el administrador.' }), 500
+            return jsonify({
+                'success': False,
+                'error': resultado["message"]
+            }), 409
+
     except Exception as e:
         app.logger.error(f"Error al agregar país: {str(e)}")
         return jsonify({
@@ -86,36 +97,42 @@ def addPais():
             'error': 'Ocurrió un error interno. Consulte con el administrador.'
         }), 500
 
-# Actualiza un país existente por ID
+# Actualiza un país existente
 @paisapi.route('/paises/<int:pais_id>', methods=['PUT'])
 def updatePais(pais_id):
     data = request.get_json()
     paisdao = PaisDao()
 
-    # Validar que el JSON no esté vacío y tenga las propiedades necesarias
-    campos_requeridos = ['descripcion']
+    if not data or 'descripcion' not in data or not data['descripcion'].strip():
+        return jsonify({
+            'success': False,
+            'error': 'El campo descripcion es obligatorio y no puede estar vacío.'
+        }), 400
 
-    # Verificar si faltan campos o son vacíos
-    for campo in campos_requeridos:
-        if campo not in data or data[campo] is None or len(data[campo].strip()) == 0:
-            return jsonify({
-                            'success': False,
-                            'error': f'El campo {campo} es obligatorio y no puede estar vacío.'
-                            }), 400
+    descripcion = data['descripcion'].strip()
 
-    descripcion = data['descripcion']
+    if not es_descripcion_valida(descripcion):
+        return jsonify({
+            'success': False,
+            'error': 'La descripción solo puede contener letras y espacios.'
+        }), 400
+
     try:
-        if paisdao.updatePais(pais_id, descripcion.upper()):
+        resultado = paisdao.updatePais(pais_id, descripcion)
+
+        if resultado["success"]:
             return jsonify({
                 'success': True,
-                'data': {'id': pais_id, 'descripcion': descripcion},
+                'data': {'id': pais_id, 'descripcion': descripcion.upper()},
+                'message': resultado.get("message", "País actualizado exitosamente."),
                 'error': None
             }), 200
         else:
             return jsonify({
                 'success': False,
-                'error': 'No se encontró el país con el ID proporcionado o no se pudo actualizar.'
-            }), 404
+                'error': resultado.get("message", "No se pudo actualizar el país.")
+            }), 409
+
     except Exception as e:
         app.logger.error(f"Error al actualizar país: {str(e)}")
         return jsonify({
@@ -127,9 +144,7 @@ def updatePais(pais_id):
 @paisapi.route('/paises/<int:pais_id>', methods=['DELETE'])
 def deletePais(pais_id):
     paisdao = PaisDao()
-
     try:
-        # Usar el retorno de eliminarPais para determinar el éxito
         if paisdao.deletePais(pais_id):
             return jsonify({
                 'success': True,
@@ -141,7 +156,6 @@ def deletePais(pais_id):
                 'success': False,
                 'error': 'No se encontró el país con el ID proporcionado o no se pudo eliminar.'
             }), 404
-
     except Exception as e:
         app.logger.error(f"Error al eliminar país: {str(e)}")
         return jsonify({
