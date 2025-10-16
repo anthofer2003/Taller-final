@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+    
+{% block titulo %}
+Listar Presupuesto de Proveedores
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-4">
+    <h3>Listar Presupuesto de Proveedores</h3>
+
+    <!-- Tarjeta principal -->
+    <div class="card">
+      <div class="card-header">
+        <a href="{{ url_for('pdpmod.presupuestos_agregar') }}" target="_blank" class="btn btn-primary">Agregar</a>
+      </div>
+      <div class="card-body">
+        <table class="table table-striped" id="tbl">
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Proveedor</th>
+              <th>Fecha</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <!-- /Tarjeta -->
+
+    <div class="row mt-4 d-none" id="rowAlerta">
+        <div class="col col-md-12">
+            <div class="alert alert-success">
+                <strong>Registro Exitoso!</strong>
+                <div class="row" id="mostrarAlerta"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script>
+  // Inicializa la tabla con DataTables
+  const initDatatable = () => {
+    $('#tbl').DataTable({
+      language: {
+        url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}",
+      },
+      ajax: '/api/v1/gestionar-compras/registrar-presupuesto-compras/presupuestos',
+      columns: [
+        { data: 'id_presupuesto' },
+        { data: 'proveedor' },
+        { data: 'fecha' },
+        { data: 'estado' },
+        { data: function(row) {
+            return `
+              <button type="button" name="btn_modificar" class="btn btn-warning btn-sm me-1" data-id="${row.id_presupuesto}">Modificar</button>
+              <button type="button" name="btn_eliminar" class="btn btn-danger btn-sm" data-id="${row.id_presupuesto}">Eliminar</button>
+            `;
+          }
+        }
+      ]
+    });
+  }
+
+  // Botón MODIFICAR
+  const modificar = () => {
+    $('#tbl').on('click', 'button[name="btn_modificar"]', function() {
+      const idPresupuesto = $(this).data('id');
+      
+      Swal.fire({
+        title: "¿Deseas modificar este presupuesto?",
+        showCancelButton: true,
+        confirmButtonText: "Sí",
+        cancelButtonText: "No"
+      }).then((result) => {
+        if (result.isConfirmed) {
+          // Redirige al formulario de edición
+          window.location.href = `/editar-presupuesto/${idPresupuesto}`;
+        }
+      });
+    });
+  }
+
+  // Botón ELIMINAR
+  const eliminar = () => {
+    $('#tbl').on('click', 'button[name="btn_eliminar"]', function() {
+      const idPresupuesto = $(this).data('id');
+      
+      Swal.fire({
+        title: "¿Deseas eliminar este presupuesto?",
+        text: "Esta acción no se puede deshacer.",
+        showCancelButton: true,
+        confirmButtonText: "Sí, eliminar",
+        cancelButtonText: "No"
+      }).then((result) => {
+        if (result.isConfirmed) {
+          fetch(`/api/v1/gestionar-compras/registrar-presupuesto-compras/presupuestos/${idPresupuesto}`, {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          })
+          .then(resp => resp.json())
+          .then(data => {
+            if (data && !data.error && data.success) {
+              const fila = $(this).closest('tr');
+              const tabla = $('#tbl').DataTable();
+              tabla.row(fila).remove().draw();
+              Swal.fire("Eliminado", "El presupuesto fue eliminado correctamente.", "success");
+            } else {
+              Swal.fire("Error", data.error || "No se pudo eliminar el presupuesto.", "error");
+            }
+          })
+          .catch(err => {
+            console.error(err);
+            Swal.fire("Error", "Ocurrió un error al eliminar el presupuesto.", "error");
+          });
+        }
+      });
+    });
+  }
+
+  // Eventos
+  const addEvents = () => {
+    modificar();
+    eliminar();
+  }
+
+  $(function() {
+    initDatatable();
+    addEvents();
+  });
+</script>
+{% endblock %}

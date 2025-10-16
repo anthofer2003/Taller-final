@@ -47,15 +47,24 @@ app.register_blueprint(turmod, url_prefix=f'{modulo0}/turno')
 # importar gestionar compras
 from app.rutas.gestionar_compras.registrar_pedido_compras.registrar_pedido_compras_routes \
     import pdcmod
+from app.rutas.gestionar_compras.registrar_presupuesto_compras.registrar_presupuesto_compras_routes \
+    import pdpmod
 
 # registro de modulos - gestionar compras
 modulo1 = '/gestionar-compras'
 app.register_blueprint(pdcmod, url_prefix=f'{modulo1}/registrar-pedido-compras')
+app.register_blueprint(pdpmod, url_prefix=f'{modulo1}/registrar-presupuesto-compras')
 
 from app.rutas.referenciales.ciudad.ciudad_api import ciuapi
 from app.rutas.referenciales.sucursal.sucursal_api import sucapi
+from app.rutas.referenciales.proveedor.proveedor_api import proapi
+from app.rutas.referenciales.item.item_api import itemsapi
+from app.rutas.referenciales.deposito.deposito_api import depoapi
+
 from app.rutas.gestionar_compras.registrar_pedido_compras.registrar_pedido_compras_api \
     import pdcapi
+from app.rutas.gestionar_compras.registrar_presupuesto_compras.registrar_presupuesto_compras_api \
+    import pdpmodapi
 from app.rutas.referenciales.pais.pais_api import paisapi
 from app.rutas.referenciales.persona.persona_api import persona_api
 from app.rutas.referenciales.estudiante.estudiante_api import estudiante_api
@@ -70,7 +79,9 @@ from app.rutas.referenciales.turno.turno_api import turno_api
 apiversion1 = '/api/v1'
 app.register_blueprint(ciuapi, url_prefix=apiversion1)
 app.register_blueprint(sucapi, url_prefix=apiversion1)
-app.register_blueprint(paisapi, url_prefix=apiversion1)
+app.register_blueprint(proapi, url_prefix=apiversion1)
+app.register_blueprint(depoapi, url_prefix=apiversion1)
+app.register_blueprint(itemsapi, url_prefix=apiversion1)
 app.register_blueprint(persona_api, url_prefix=apiversion1)
 app.register_blueprint(estudiante_api, url_prefix=apiversion1)
 app.register_blueprint(profesor_api, url_prefix=apiversion1)
@@ -82,3 +93,4 @@ app.register_blueprint(turno_api, url_prefix=apiversion1)
 
 # Gestionar compras API
 app.register_blueprint(pdcapi, url_prefix=f'{apiversion1}/{modulo1}/registrar-pedido-compras')
+app.register_blueprint(pdpmodapi, url_prefix=f'{apiversion1}/{modulo1}/registrar-presupuesto-compras')
