@@ -1,0 +1,269 @@
+{% extends 'base.html' %}
+{% block titulo %}Orden de Compra{% endblock %}
+
+{% block contenido %}
+<div class="container mt-4">
+  <div class="card">
+    <div class="card-header bg-primary text-white"><h3>Orden de Compra</h3></div>
+    <div class="card-body">
+      <div class="row">
+        <div class="col-md-6">
+          <div class="form-group">
+            <label>Nro. Orden</label>
+            <input id="txt_nro_orden" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Fecha</label>
+            <input id="txt_fecha" type="date" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Proveedor</label>
+            <select id="cbo_proveedor" class="custom-select">
+              <option value="">Seleccione un proveedor</option>
+              {% for p in proveedores %}
+                <option value="{{ p['id_proveedor'] }}">{{ p['nombre_proveedor'] }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Empresa</label>
+            <input id="txt_empresa" class="form-control">
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <div class="form-group">
+            <label>Depósito</label>
+            <select id="cbo_deposito" class="custom-select">
+              <option value="">Seleccione un depósito</option>
+              {% for d in depositos %}
+                <option value="{{ d['id_deposito'] }}">{{ d['nombre_deposito'] }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Funcionario</label>
+            <input id="txt_funcionario" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Sucursal</label>
+            <select id="cbo_sucursal" class="custom-select">
+              <option value="">Seleccione una sucursal</option>
+              {% for s in sucursales %}
+                <option value="{{ s['id'] }}">{{ s['descripcion'] }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Cantidad en stock</label>
+            <input id="txt_stock" type="number" class="form-control">
+          </div>
+        </div>
+      </div>
+
+      <hr>
+
+      <div class="form-group row">
+        <label class="col-md-2 col-form-label">Items</label>
+        <div class="col-md-4">
+          <select id="cbo_item" class="custom-select">
+            <option value="">Seleccione un item</option>
+            {% for it in items %}
+              <option value="{{ it['id_item'] }}">{{ it['descripcion'] }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <label class="col-md-1 col-form-label">Cant.</label>
+        <div class="col-md-2"><input id="txt_cantidad" type="number" min="1" class="form-control"></div>
+        <label class="col-md-1 col-form-label">Precio</label>
+        <div class="col-md-2"><input id="txt_precio" type="number" min="0" class="form-control"></div>
+        <div class="col-md-2 mt-2">
+          <button id="btn_agregar_item" class="btn btn-success w-100">Agregar</button>
+        </div>
+      </div>
+
+      <hr>
+
+      <!-- tabla items -->
+      <div class="row">
+        <div class="col-md-12">
+          <table class="table table-hover" id="tbl_items">
+            <thead>
+              <tr>
+                <th>Código</th><th>Item</th><th>Cantidad</th><th>Precio Unit.</th><th>Subtotal</th><th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="card-footer text-center">
+      <div class="btn-group">
+        <button id="btn_guardar" class="btn btn-primary">Grabar</button>
+        <button id="btn_cancelar" class="btn btn-warning">Cancelar</button>
+        <button id="btn_salir" class="btn btn-secondary">Salir</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script>
+  let items_agregados = [];
+  const data_from_server = { items: {{ items|tojson }} };
+
+  function crearFila(item){
+    const subtotal = (item.precio_unitario || 0) * (item.cantidad || 0);
+    return `
+      <tr data-id="${item.id_item}">
+        <td>${item.id_item}</td>
+        <td>${item.descripcion}</td>
+        <td>${item.cantidad}</td>
+        <td>${item.precio_unitario || 0}</td>
+        <td>${subtotal}</td>
+        <td>
+          <button class="btn btn-warning btn-sm modificar">Modificar</button>
+          <button class="btn btn-danger btn-sm eliminar">Borrar</button>
+        </td>
+      </tr>
+    `;
+  }
+
+  function obtenerDetalle(){
+    const detalle = [];
+    $('#tbl_items tbody tr').each(function(){
+      detalle.push({
+        id_item: Number($(this).children().eq(0).text()),
+        cantidad: Number($(this).children().eq(2).text()),
+        precio_unitario: Number($(this).children().eq(3).text())
+      });
+    });
+    return detalle;
+  }
+
+  function addEvents(){
+    // Agregar item
+    $('#btn_agregar_item').on('click', function(){
+      const id_item = Number($('#cbo_item').val());
+      const cantidad = Number($('#txt_cantidad').val());
+      const precio = Number($('#txt_precio').val());
+      const proveedor = $('#cbo_proveedor').val();
+
+      if(!id_item) return Swal.fire("Error","Seleccione un item","error");
+      if(!cantidad || cantidad <=0) return Swal.fire("Error","Ingrese cantidad válida","error");
+      if(!proveedor) return Swal.fire("Error","Seleccione proveedor","error");
+
+      if(items_agregados.includes(id_item)) return Swal.fire("Atención","Item ya agregado","warning");
+
+      const item_server = data_from_server.items.find(i => i.id_item === id_item) || { descripcion: 'N/A' };
+      const item = {
+        id_item: id_item,
+        descripcion: item_server.descripcion,
+        cantidad: cantidad,
+        precio_unitario: precio || item_server.precio_unitario || 0
+      };
+      items_agregados.push(id_item);
+      $('#tbl_items tbody').append(crearFila(item));
+      $('#cbo_item').val(''); $('#txt_cantidad').val(''); $('#txt_precio').val('');
+    });
+
+    // Eliminar fila
+    $('#tbl_items tbody').on('click', '.eliminar', function(){
+      const id = Number($(this).closest('tr').data('id'));
+      items_agregados = items_agregados.filter(x=> x !== id);
+      $(this).closest('tr').remove();
+    });
+
+    // Modificar fila
+    $('#tbl_items tbody').on('click', '.modificar', function(){
+      const row = $(this).closest('tr');
+      const id = Number(row.data('id'));
+      const descripcion = row.children().eq(1).text();
+      const cantidad_actual = Number(row.children().eq(2).text());
+      const precio_actual = Number(row.children().eq(3).text());
+
+      Swal.fire({
+        title: `Modificar ${descripcion}`,
+        html:
+          `<input id="swal_cant" type="number" class="swal2-input" placeholder="Cantidad" value="${cantidad_actual}">` +
+          `<input id="swal_prec" type="number" class="swal2-input" placeholder="Precio" value="${precio_actual}">`,
+        showCancelButton: true,
+        confirmButtonText: "Guardar",
+        preConfirm: () => {
+          const c = Number(document.getElementById('swal_cant').value);
+          const p = Number(document.getElementById('swal_prec').value);
+          if(!c || c <= 0) { Swal.showValidationMessage("Ingrese cantidad válida"); }
+          return { c, p };
+        }
+      }).then(res=>{
+        if(res.isConfirmed){
+          row.children().eq(2).text(res.value.c);
+          row.children().eq(3).text(res.value.p);
+          // actualizar subtotal
+          const subtotal = res.value.c * res.value.p;
+          row.children().eq(4).text(subtotal);
+          Swal.fire("Modificado","Item actualizado","success");
+        }
+      });
+    });
+
+    // Guardar orden
+    $('#btn_guardar').on('click', function(){
+      const payload = {
+        nro_orden: $('#txt_nro_orden').val(),
+        id_empleado: Number($('#cbo_empleado').val()) || null,
+        id_proveedor: Number($('#cbo_proveedor').val()),
+        id_sucursal: Number($('#cbo_sucursal').val()),
+        id_deposito: Number($('#cbo_deposito').val()),
+        empresa: $('#txt_empresa').val(),
+        funcionario: $('#txt_funcionario').val(),
+        fecha: $('#txt_fecha').val(),
+        fecha_vencimiento: $('#txt_fecha_vencimiento') ? $('#txt_fecha_vencimiento').val() : null,
+        factura: $('#txt_factura') ? $('#txt_factura').val() : null,
+        tipo_pago: $('input[name="tipo_pago"]:checked').val() || null,
+        nro_pedido: $('#txt_nro_pedido').val() || null,
+        detalle_orden: obtenerDetalle()
+      };
+
+      if(!payload.id_proveedor) return Swal.fire("Error","Seleccione proveedor","error");
+      if(payload.detalle_orden.length === 0) return Swal.fire("Error","Agregue al menos un item","error");
+
+      fetch('/api/v1/gestionar-compras/registrar-orden-compra/ordenes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      .then(r=>r.json())
+      .then(data=>{
+        if(data && data.success){
+          Swal.fire("Éxito","Orden creada correctamente","success");
+          // limpiar
+          $('#tbl_items tbody').empty(); items_agregados = [];
+        } else {
+          Swal.fire("Error", data.error || "No se pudo crear la orden","error");
+        }
+      }).catch(e=>{
+        console.error(e);
+        Swal.fire("Error","Ocurrió un error","error");
+      });
+    });
+
+    // Cancelar
+    $('#btn_cancelar').on('click', function(){
+      $('#tbl_items tbody').empty(); items_agregados = [];
+      Swal.fire("Cancelado","Operación cancelada","info");
+    });
+
+    // Salir
+    $('#btn_salir').on('click', function(){
+      location.replace("{{ url_for('ordmod.orden_index') }}");
+    });
+  }
+
+  $(function(){ addEvents(); });
+</script>
+{% endblock %}

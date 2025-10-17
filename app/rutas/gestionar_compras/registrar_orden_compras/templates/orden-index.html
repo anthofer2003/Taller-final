@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+{% block titulo %}Listar Ordenes de Compra{% endblock %}
+
+{% block contenido %}
+<div class="container mt-4">
+  <h3>Orden de Compra</h3>
+  <div class="card">
+    <div class="card-header">
+      <a href="{{ url_for('ordmod.orden_agregar') }}" class="btn btn-primary" target="_blank">Agregar</a>
+    </div>
+    <div class="card-body">
+      <table class="table table-striped" id="tbl">
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>Proveedor</th>
+            <th>Fecha</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script>
+  const initDatatable = () => {
+    $('#tbl').DataTable({
+      language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
+      ajax: '/api/v1/gestionar-compras/registrar-orden-compras/ordenes',
+      columns: [
+        { data: 'id_orden_compra' },
+        { data: 'proveedor' },
+        { data: 'fecha' },
+        { data: 'estado' },
+        { data: function(row) {
+            return `
+              <button type="button" name="btn_modificar" class="btn btn-warning btn-sm me-1" data-id="${row.id_orden_compra}">Modificar</button>
+              <button type="button" name="btn_eliminar" class="btn btn-danger btn-sm" data-id="${row.id_orden_compra}">Anular</button>
+            `;
+          }
+        }
+      ]
+    });
+  }
+
+  $(function(){
+    initDatatable();
+
+    // eliminar
+    $('#tbl').on('click', 'button[name="btn_eliminar"]', function(){
+      const id = $(this).data('id');
+      const btn = this;
+      Swal.fire({
+        title: "¿Anular orden?",
+        showCancelButton: true,
+        confirmButtonText: "Sí"
+      }).then(res=>{
+        if(res.isConfirmed){
+          fetch(`/api/v1/gestionar-compras/registrar-orden-compras/ordenes/${id}`, { method: 'DELETE' })
+            .then(r=>r.json()).then(data=>{
+              if(data && data.success){
+                const tabla = $('#tbl').DataTable();
+                tabla.row($(btn).closest('tr')).remove().draw();
+                Swal.fire("Anulado","Orden anulada","success");
+              } else {
+                Swal.fire("Error", data.error || "No se pudo anular");
+              }
+            }).catch(e=>{
+              console.error(e);
+              Swal.fire("Error","Error al anular","error");
+            });
+        }
+      });
+    });
+
+    // modificar (redirige)
+    $('#tbl').on('click', 'button[name="btn_modificar"]', function(){
+      const id = $(this).data('id');
+      window.location.href = `/editar-orden/${id}`;
+    });
+  });
+</script>
+{% endblock %}
