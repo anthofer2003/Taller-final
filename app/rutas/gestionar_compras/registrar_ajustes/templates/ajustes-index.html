@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% block titulo %}Listar Ajustes{% endblock %}
+
+{% block contenido %}
+<div class="container mt-4">
+    <h3>Ajustes</h3>
+    <div class="card">
+      <div class="card-header">
+        <a href="{{ url_for('ajmod.ajustes_agregar') }}" target="_blank" class="btn btn-primary">Agregar</a>
+      </div>
+      <div class="card-body">
+        <table class="table table-striped" id="tbl">
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Empleado</th>
+              <th>Tipo</th>
+              <th>Fecha</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+      </table>
+      </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script>
+  const initDatatable = () => {
+    $('#tbl').DataTable({
+      language: { url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}" },
+      ajax: '/api/v1/gestionar-compras/registrar-ajustes/ajustes',
+      columns: [
+        { data: 'id_ajuste' },
+        { data: 'empleado' },
+        { data: 'tipo_ajuste' },
+        { data: 'fecha' },
+        { data: 'estado' },
+        { data: function(row) {
+            return `
+              <button type="button" name="btn_modificar" class="btn btn-warning btn-sm me-1" data-id="${row.id_ajuste}">Modificar</button>
+              <button type="button" name="btn_eliminar" class="btn btn-danger btn-sm" data-id="${row.id_ajuste}">Anular</button>
+            `;
+          }
+        }
+      ]
+    });
+  }
+
+  $(function(){
+    initDatatable();
+
+    $('#tbl').on('click', 'button[name="btn_eliminar"]', function(){
+      const id = $(this).data('id'); const btn = this;
+      Swal.fire({ title: "¿Anular ajuste?", showCancelButton:true, confirmButtonText:"Sí" })
+      .then(res => {
+        if(res.isConfirmed){
+          fetch(`/api/v1/gestionar-compras/registrar-ajustes/ajustes/${id}`, { method:'DELETE' })
+            .then(r => r.json()).then(data=>{
+              if(data && data.success){
+                const tabla = $('#tbl').DataTable();
+                tabla.row($(btn).closest('tr')).remove().draw();
+                Swal.fire("Anulado","Ajuste anulado","success");
+              } else { Swal.fire("Error", data.error || "No se pudo anular"); }
+            }).catch(e=>{ console.error(e); Swal.fire("Error","Ocurrió un error","error"); });
+        }
+      });
+    });
+
+    $('#tbl').on('click', 'button[name="btn_modificar"]', function(){
+      const id = $(this).data('id');
+      window.location.href = `/editar-ajuste/${id}`;
+    });
+  });
+</script>
+{% endblock %}

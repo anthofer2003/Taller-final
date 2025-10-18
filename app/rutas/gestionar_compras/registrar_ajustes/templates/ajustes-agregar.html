@@ -1,0 +1,293 @@
+{% extends 'base.html' %}
+{% block titulo %}Ajustes{% endblock %}
+
+{% block contenido %}
+<div class="container mt-4">
+  <div class="card">
+    <div class="card-header bg-primary text-white"><h3>Ajustes</h3></div>
+    <div class="card-body">
+      <div class="row">
+        <div class="col-md-4">
+          <div class="form-group">
+            <label>Nro. Ajuste</label>
+            <input id="txt_nro_ajuste" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Fecha</label>
+            <input id="txt_fecha" type="date" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Empresa</label>
+            <input id="txt_empresa" class="form-control">
+          </div>
+
+          <div class="form-group">
+            <label>Tipo de Ajustes</label><br>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="tipo_ajuste" id="tipo_pos" value="Positivo" checked>
+              <label class="form-check-label" for="tipo_pos">Positivo</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="tipo_ajuste" id="tipo_neg" value="Negativo">
+              <label class="form-check-label" for="tipo_neg">Negativo</label>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="col-md-4">
+          <div class="form-group">
+            <label>Depósito</label>
+            <select id="cbo_deposito" class="custom-select">
+              <option value="">Seleccione depósito</option>
+              {% for d in depositos %}
+                <option value="{{ d['id_deposito'] }}">{{ d['nombre_deposito'] }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Sucursal</label>
+            <select id="cbo_sucursal" class="custom-select">
+              <option value="">Seleccione sucursal</option>
+              {% for s in sucursales %}
+                <option value="{{ s['id'] }}">{{ s['descripcion'] }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Items</label>
+            <select id="cbo_item" class="custom-select">
+              <option value="">Seleccione item</option>
+              {% for it in items %}
+                <option value="{{ it['id_item'] }}">{{ it['descripcion'] }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+        </div>
+
+        <div class="col-md-4">
+          <div class="form-group">
+            <label>Funcionario</label>
+            <select id="cbo_empleado" class="custom-select">
+              <option value="">Seleccione funcionario</option>
+              {% for e in empleados %}
+                <option value="{{ e['id_empleado'] }}">{{ e['nombres'] }} {{ e['apellidos'] }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Cantidad en stock</label>
+            <input id="txt_stock" class="form-control" type="number">
+          </div>
+        </div>
+      </div>
+
+      <hr>
+
+      <div class="form-row align-items-end">
+        <div class="col-md-4">
+          <label>Cantidad</label>
+          <input id="txt_cantidad" type="number" min="1" class="form-control">
+        </div>
+        <div class="col-md-4">
+          <label>Precio</label>
+          <input id="txt_precio" type="number" min="0" class="form-control">
+        </div>
+        <div class="col-md-4">
+          <button id="btn_agregar_item" class="btn btn-success w-100">Agregar producto</button>
+        </div>
+      </div>
+
+      <hr>
+
+      <div class="form-group">
+        <label>Motivo de ajustes</label>
+        <textarea id="txt_motivo_general" class="form-control" rows="3"></textarea>
+      </div>
+
+      <hr>
+
+      <div class="row">
+        <div class="col-md-12">
+          <table class="table table-hover" id="tbl_items">
+            <thead>
+              <tr>
+                <th>Código</th><th>Item</th><th>Cantidad</th><th>Funcionario</th><th>Precio</th><th>Tipo</th><th>Motivo</th><th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="card-footer text-center">
+      <button id="btn_guardar" class="btn btn-primary">Grabar</button>
+      <button id="btn_cancelar" class="btn btn-warning">Cancelar</button>
+      <button id="btn_salir" class="btn btn-secondary">Salir</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script>
+  let items_agregados = [];
+  const data_from_server = { items: {{ items|tojson }} };
+
+  function crearFila(item) {
+    return `
+      <tr data-id="${item.id_item}">
+        <td>${item.id_item}</td>
+        <td>${item.descripcion}</td>
+        <td>${item.cantidad}</td>
+        <td>${$('#cbo_empleado option:selected').text()}</td>
+        <td>${item.precio_unitario || 0}</td>
+        <td>${$('input[name="tipo_ajuste"]:checked').val()}</td>
+        <td>${item.motivo || ''}</td>
+        <td>
+          <button type="button" class="btn btn-warning btn-sm modificar">Modificar</button>
+          <button type="button" class="btn btn-danger btn-sm eliminar">Eliminar</button>
+        </td>
+      </tr>
+    `;
+  }
+
+  function obtenerDetalle() {
+    const detalle = [];
+    $('#tbl_items tbody tr').each(function() {
+      detalle.push({
+        id_item: Number($(this).children().eq(0).text()),
+        cantidad: Number($(this).children().eq(2).text()),
+        precio_unitario: Number($(this).children().eq(4).text()),
+        motivo: $(this).children().eq(6).text()
+      });
+    });
+    return detalle;
+  }
+
+  function addEvents() {
+    // AGREGAR ITEM
+    $('#btn_agregar_item').on('click', function() {
+      const id_item = Number($('#cbo_item').val());
+      const cantidad = Number($('#txt_cantidad').val());
+      const precio = Number($('#txt_precio').val());
+      const motivo = $('#txt_motivo_general').val();
+      const empleado = $('#cbo_empleado').val();
+
+      if(!id_item) return Swal.fire("Error","Seleccione un item","error");
+      if(!cantidad || cantidad <=0) return Swal.fire("Error","Ingrese cantidad válida","error");
+      if(!empleado) return Swal.fire("Error","Seleccione funcionario","error");
+
+      if(items_agregados.includes(id_item)) return Swal.fire("Atención","Item ya agregado","warning");
+
+      const item_server = data_from_server.items.find(i => i.id_item === id_item) || { descripcion: 'N/A', precio_unitario: 0 };
+      const filaObj = {
+        id_item: id_item,
+        descripcion: item_server.descripcion,
+        cantidad: cantidad,
+        precio_unitario: precio || item_server.precio_unitario || 0,
+        motivo: motivo
+      };
+
+      items_agregados.push(id_item);
+      $('#tbl_items tbody').append(crearFila(filaObj));
+      $('#cbo_item').val(''); $('#txt_cantidad').val(''); $('#txt_precio').val('');
+    });
+
+    // ELIMINAR FILA
+    $('#tbl_items tbody').on('click', '.eliminar', function() {
+      const id = Number($(this).closest('tr').data('id'));
+      items_agregados = items_agregados.filter(x => x !== id);
+      $(this).closest('tr').remove();
+    });
+
+    // MODIFICAR FILA
+    $('#tbl_items tbody').on('click', '.modificar', function() {
+      const row = $(this).closest('tr');
+      const descripcion = row.children().eq(1).text();
+      const cantidad_actual = Number(row.children().eq(2).text());
+      const precio_actual = Number(row.children().eq(4).text());
+      const motivo_actual = row.children().eq(6).text();
+
+      Swal.fire({
+        title: `Modificar ${descripcion}`,
+        html:
+          `<input id="swal_cant" type="number" class="swal2-input" value="${cantidad_actual}">` +
+          `<input id="swal_prec" type="number" class="swal2-input" value="${precio_actual}">` +
+          `<input id="swal_mot" type="text" class="swal2-input" value="${motivo_actual}">`,
+        showCancelButton: true,
+        confirmButtonText: 'Guardar',
+        preConfirm: () => {
+          const c = Number(document.getElementById('swal_cant').value);
+          const p = Number(document.getElementById('swal_prec').value);
+          const m = document.getElementById('swal_mot').value;
+          if(!c || c <= 0) Swal.showValidationMessage("Ingrese cantidad válida");
+          return { c, p, m };
+        }
+      }).then(result => {
+        if(result.isConfirmed){
+          row.children().eq(2).text(result.value.c);
+          row.children().eq(4).text(result.value.p);
+          row.children().eq(6).text(result.value.m);
+          Swal.fire("Modificado","Item actualizado","success");
+        }
+      });
+    });
+
+    // GUARDAR AJUSTE
+    $('#btn_guardar').on('click', function() {
+      const payload = {
+        nro_ajuste: $('#txt_nro_ajuste').val(),
+        id_empleado: Number($('#cbo_empleado').val()),
+        id_sucursal: Number($('#cbo_sucursal').val()),
+        id_deposito: Number($('#cbo_deposito').val()),
+        empresa: $('#txt_empresa').val(),
+        funcionario: $('#cbo_empleado option:selected').text(),
+        fecha: $('#txt_fecha').val(),
+        tipo_ajuste: $('input[name="tipo_ajuste"]:checked').val(),
+        motivo_general: $('#txt_motivo_general').val(),
+        detalle_ajuste: obtenerDetalle()
+      };
+
+      if(!payload.id_empleado) return Swal.fire("Error","Seleccione empleado","error");
+      if(payload.detalle_ajuste.length === 0) return Swal.fire("Error","Agregue al menos un item","error");
+
+      fetch('/api/v1/gestionar-inventario/ajustes/ajustes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      .then(r => r.json())
+      .then(data => {
+        if(data && data.success) {
+          Swal.fire("Éxito","Ajuste registrado correctamente","success");
+          $('#tbl_items tbody').empty(); items_agregados = [];
+        } else {
+          Swal.fire("Error", data.error || "No se pudo guardar el ajuste","error");
+        }
+      })
+      .catch(e => { console.error(e); Swal.fire("Error","Ocurrió un error","error"); });
+    });
+
+    // CANCELAR
+    $('#btn_cancelar').on('click', function() {
+      $('#tbl_items tbody').empty(); items_agregados = [];
+      Swal.fire("Cancelado","Operación cancelada","info");
+    });
+
+    // SALIR
+    $('#btn_salir').on('click', function() {
+      location.replace("{{ url_for('ajmod.ajustes_index') }}");
+    });
+  }
+
+  $(function(){ addEvents(); });
+
+</script>
+{% endblock %}
