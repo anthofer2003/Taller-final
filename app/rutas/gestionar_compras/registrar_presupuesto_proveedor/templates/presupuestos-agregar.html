@@ -1,0 +1,239 @@
+{% extends 'base.html' %}
+{% block titulo %}Presupuesto del Proveedor{% endblock %}
+
+{% block contenido %}
+<div class="container mt-4">
+  <div class="card border-primary">
+    <div class="card-header bg-primary text-white">
+      <h4 class="mb-0">Presupuesto del Proveedor</h4>
+    </div>
+    <div class="card-body">
+      <form id="form_presupuesto">
+
+        <!-- FILA 1 -->
+        <div class="form-row mb-3">
+          <div class="col-md-2">
+            <label class="font-weight-bold">Nro. Presupuesto</label>
+            <input type="text" class="form-control" disabled>
+          </div>
+          <div class="col-md-2">
+            <label class="font-weight-bold">Depósito</label>
+            <select id="cbo_deposito" class="form-control"></select>
+          </div>
+          <div class="col-md-2">
+            <label class="font-weight-bold">Funcionario</label>
+            <select id="cbo_empleado" class="form-control">
+              <option value="">Seleccione</option>
+              {% for e in empleados %}
+              <option value="{{ e['id_empleado'] }}">{{ e['empleado'] }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <!-- FILA 2 -->
+        <div class="form-row mb-3">
+          <div class="col-md-2">
+            <label class="font-weight-bold">Fecha</label>
+            <input type="date" id="txt_fecha_presupuesto" class="form-control">
+          </div>
+          <div class="col-md-2">
+            <label class="font-weight-bold">Sucursal</label>
+            <select id="cbo_sucursal" class="form-control">
+              <option value="">Seleccione</option>
+              {% for s in sucursales %}
+              <option value="{{ s['id'] }}">{{ s['descripcion'] }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-2">
+            <label class="font-weight-bold">Cant. en stock</label>
+            <input type="text" class="form-control" disabled>
+          </div>
+        </div>
+
+        <!-- FILA 3 -->
+        <div class="form-row mb-3">
+          <div class="col-md-4">
+            <label class="font-weight-bold">Proveedor</label>
+            <select id="cbo_proveedor" class="form-control">
+              <option value="">Seleccione</option>
+              {% for p in proveedores %}
+              <option value="{{ p['id_proveedor'] }}">{{ p['nombre_proveedor'] }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-2">
+            <label class="font-weight-bold">Items</label>
+            <select id="cbo_producto" class="form-control">
+              <option value="">Seleccione</option>
+              {% for prod in productos %}
+              <option value="{{ prod['id_producto'] }}">{{ prod['nombre'] }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-2">
+            <label class="font-weight-bold">Presupuesto</label>
+            <input type="text" class="form-control" disabled>
+          </div>
+        </div>
+
+        <!-- FILA 4 -->
+        <div class="form-row mb-4">
+          <div class="col-md-2">
+            <label class="font-weight-bold">Empresa</label>
+            <input type="text" class="form-control" disabled>
+          </div>
+          <div class="col-md-2">
+            <label class="font-weight-bold">Cantidad</label>
+            <input type="number" id="txt_cantidad" class="form-control" min="1">
+          </div>
+          <div class="col-md-2">
+            <label class="font-weight-bold">Precio</label>
+            <input type="number" id="txt_precio" class="form-control" step="0.01" min="0">
+          </div>
+        </div>
+
+        <!-- TABLA DE ITEMS -->
+        <h5>Productos Agregados</h5>
+        <table class="table table-bordered" id="tbl_productos">
+          <thead class="thead-light">
+            <tr>
+              <th>Código</th>
+              <th>Items</th>
+              <th>Cantidad</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+
+        <div class="text-center mb-4">
+          <button type="button" class="btn btn-primary" id="btn_agregar_producto">Agregar productos</button>
+        </div>
+
+        <!-- TABLA FINAL DE RESUMEN -->
+        <h5>Resumen del Presupuesto</h5>
+        <table class="table table-bordered">
+          <thead class="thead-light">
+            <tr>
+              <th>Código</th>
+              <th>Items</th>
+              <th>Cantidad</th>
+              <th>Proveedor</th>
+              <th>Precio IVA incluido</th>
+            </tr>
+          </thead>
+          <tbody id="tbl_resumen">
+            <!-- Contenido generado dinámicamente -->
+          </tbody>
+        </table>
+
+        <!-- BOTONES -->
+        <div class="text-center">
+          <button type="button" class="btn btn-primary">AGREGAR</button>
+          <button type="button" class="btn btn-primary" id="btn_registrar_presupuesto">GRABAR</button>
+          <button type="button" class="btn btn-primary">CONSULTAR</button>
+          <button type="button" class="btn btn-primary">MODIFICAR</button>
+          <button type="button" class="btn btn-danger">ELIMINAR</button>
+          <button type="button" class="btn btn-warning" id="btn_cancelar">CANCELAR</button>
+          <button type="button" class="btn btn-secondary">SALIR</button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script>
+  let productos_agregados = [];
+
+  const creaFila = (item) => {
+    return `<tr data-id="${item.id_producto}">
+      <td>${item.id_producto}</td>
+      <td>${item.nombre}</td>
+      <td>${item.cantidad}</td>
+      <td>
+        <button class="btn btn-danger btn-sm btn-eliminar">Borrar</button>
+        <button class="btn btn-secondary btn-sm btn-modificar">Modificar</button>
+      </td>
+    </tr>`;
+  };
+
+  const obtieneDetalle = () => {
+    const arr = [];
+    $('#tbl_productos tbody tr').each(function(){
+      const id_prod = Number($(this).data('id'));
+      const nombre = $(this).children().eq(1).text();
+      const cantidad = Number($(this).children().eq(2).text());
+      const producto = data_from_server.productos.find(p => p.id_producto === id_prod);
+      arr.push({
+        id_producto: id_prod,
+        cantidad,
+        precio_unitario: producto.precio_unitario || 0
+      });
+    });
+    return arr;
+  };
+
+  $(function(){
+    $('#btn_agregar_producto').on('click', function(){
+      const id_prod = Number($('#cbo_producto').val());
+      const cantidad = Number($('#txt_cantidad').val());
+      const precio = parseFloat($('#txt_precio').val());
+
+      if (!id_prod || cantidad <= 0 || isNaN(precio)) {
+        alert("Datos inválidos.");
+        return;
+      }
+
+      if (productos_agregados.includes(id_prod)) {
+        alert("Producto ya agregado");
+        return;
+      }
+
+      const prod = data_from_server.productos.find(p => p.id_producto === id_prod);
+      prod.cantidad = cantidad;
+      prod.precio_unitario = precio;
+      productos_agregados.push(id_prod);
+      $('#tbl_productos tbody').append(creaFila(prod));
+      $('#txt_cantidad').val('');
+      $('#txt_precio').val('');
+    });
+
+    $('#tbl_productos').on('click', '.btn-eliminar', function(){
+      const id = Number($(this).closest('tr').data('id'));
+      productos_agregados = productos_agregados.filter(i => i !== id);
+      $(this).closest('tr').remove();
+    });
+
+    $('#btn_registrar_presupuesto').on('click', function(){
+      const payload = {
+        id_proveedor: Number($('#cbo_proveedor').val()),
+        id_empleado: Number($('#cbo_empleado').val()),
+        id_sucursal: Number($('#cbo_sucursal').val()),
+        fecha_presupuesto: $('#txt_fecha_presupuesto').val(),
+        detalle_presupuesto: obtieneDetalle()
+      };
+
+      fetch('/api/v1/presupuestos-proveedor/presupuestos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      .then(res => res.json())
+      .then(data => {
+        alert('Presupuesto registrado');
+        console.log(data);
+      })
+      .catch(err => console.error(err));
+    });
+
+    $('#btn_cancelar').on('click', function(){
+      location.reload();
+    });
+  });
+</script>
+{% endblock %}

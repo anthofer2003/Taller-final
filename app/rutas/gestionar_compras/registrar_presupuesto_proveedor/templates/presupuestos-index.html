@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% block titulo %} Listar Presupuestos Proveedor {% endblock %}
+{% block contenido %}
+<div class="container mt-4">
+  <h3>Listado de Presupuestos de Proveedores</h3>
+  <div class="card">
+    <div class="card-header">
+      <a href="{{ url_for('pp_mod.presupuestos_agregar') }}" class="btn btn-primary">Agregar</a>
+    </div>
+    <div class="card-body">
+      <table class="table table-striped" id="tbl_presupuestos">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Proveedor</th>
+            <th>Empleado</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script>
+  const initTable = () => {
+    $('#tbl_presupuestos').DataTable({
+      language: {
+        url: "{{ url_for('static', filename='vendor/datatables/es-ES.json') }}"
+      },
+      ajax: '/api/v1/presupuestos-proveedor/presupuestos',
+      columns: [
+        { data: 'id_presupuesto' },
+        { data: 'proveedor' },
+        { data: 'empleado' },
+        { data: 'estado' },
+        {
+          data: function(row) {
+            return `<button name="btn_anular" data-id="${row.id_presupuesto}" class="btn btn-danger">Anular</button>`;
+          }
+        }
+      ]
+    });
+  };
+
+  const borrar = () => {
+    $('#tbl_presupuestos').on('click', 'button[name="btn_anular"]', function() {
+      const id = $(this).data('id');
+      if (confirm("¿Deseas anular este presupuesto?")) {
+        fetch(`/api/v1/presupuestos-proveedor/presupuestos/${id}`, {
+          method: 'DELETE'
+        })
+        .then(r => r.json())
+        .then(data => {
+          if (data && data.success) {
+            const tabla = $('#tbl_presupuestos').DataTable();
+            tabla.ajax.reload();
+            alert("Presupuesto anulado");
+          } else {
+            alert(data.error || "Error al anular");
+          }
+        }).catch(err => {
+          console.error(err);
+          alert("Error interno");
+        });
+      }
+    });
+  };
+
+  $(function() {
+    initDatatable();
+    addEvents();
+  });
+</script>
+{% endblock %}
